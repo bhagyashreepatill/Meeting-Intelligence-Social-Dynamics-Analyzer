@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# Environment variables
+.env
+.env.*
+
+# Database temporary files
+meetings.db-shm
+meetings.db-wal
+
+# Logs
+*.log
+
+# Uploaded/generated files
+uploads/
+outputs/
+temp/
+
+# AI/ML models
+models/
+*.pt
+*.pth
+*.bin
+
+# Frontend
+node_modules/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Meeting Intelligence & Social Dynamics Analyzer: Analyze how conversations, ideas, decisions, participation, and actions evolve throughout meetings.">
+  <meta name="theme-color" content="#07090e">
+  <title>Meeting Intelligence & Social Dynamics Analyzer</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Core Application Stylesheet -->
+  <link rel="stylesheet" href="/static/css/style.css">
+
+  <!-- Cytoscape.js for Social Interaction Graphs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+  <!-- Chart.js for Participation & Turn Cadence Visualizations -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="app-container">
+
+    <!-- Top Sticky Application Header -->
+    <header class="app-header">
+      <div class="header-inner">
+        <div class="brand-wrapper">
+          <div class="brand-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+          </div>
+          <div>
+            <h1 class="brand-title">Meeting Intelligence</h1>
+            <p class="brand-subtitle">Social Dynamics & Idea Journey Analyzer</p>
+          </div>
+        </div>
+
+        <div class="meeting-selector-wrap">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+          <select id="meetingSelect" class="meeting-select" aria-label="Select active meeting">
+            <option value="" disabled selected>Loading meetings...</option>
+          </select>
+        </div>
+
+        <div class="header-actions">
+          <button id="btnSeedDemo" class="btn btn-demo" title="Seed realistic 45-minute sprint meeting demo">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+            </svg>
+            <span>Demo Sprint Sync</span>
+          </button>
+          
+          <button id="btnUploadModal" class="btn btn-primary" title="Upload meeting transcript">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <span>Upload Transcript</span>
+          </button>
+
+          <button id="btnExportJson" class="btn btn-secondary btn-sm" title="Export meeting intelligence as JSON">
+            <span>JSON</span>
+          </button>
+          <button id="btnExportCsv" class="btn btn-secondary btn-sm" title="Export action items and metrics as CSV">
+            <span>CSV</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Meeting Dynamics Replay Hero Bar (Persistent Sticky Scrubber) -->
+    <section class="replay-hero-bar" aria-label="Meeting Dynamics Replay Scrubber">
+      <div class="replay-inner">
+        <!-- Replay Controls -->
+        <div class="replay-controls">
+          <button id="btnPrevEvent" class="replay-btn" title="Previous event keyframe">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="19 20 9 12 19 4 19 20"></polygon>
+              <line x1="5" y1="19" x2="5" y2="5"></line>
+            </svg>
+          </button>
+          <button id="btnPlayPause" class="replay-btn btn-play" title="Play / Pause Replay">
+            <svg id="playIcon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            <svg id="pauseIcon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="display:none;">
+              <rect x="6" y="4" width="4" height="16"></rect>
+              <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>
+          </button>
+          <button id="btnNextEvent" class="replay-btn" title="Next event keyframe">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="5 4 15 12 5 20 5 4"></polygon>
+              <line x1="19" y1="5" x2="19" y2="19"></line>
+            </svg>
+          </button>
+          <span id="speedBadge" class="speed-badge" title="Toggle playback speed (1x / 2x / 5x)">1x</span>
+        </div>
+
+        <!-- Scrubber Track & Live Meta -->
+        <div class="replay-scrubber-track">
+          <div class="scrubber-meta">
+            <div id="activeSpeakerPill" class="active-speaker-pill">
+              <span class="active-speaker-dot"></span>
+              <span id="activeSpeakerName">Alice speaking</span>
+            </div>
+
+            <div id="activeTopicBadge" class="active-topic-badge">
+              Active Topic: <span id="activeTopicName">Sprint Alignment</span>
+            </div>
+
+            <div class="time-readout">
+              <span id="currTime">00:00</span> / <span id="totalTime" class="total-time">45:00</span>
+            </div>
+          </div>
+
+          <div class="slider-container">
+            <div id="sliderKeyframesBar" class="slider-keyframes-bar"></div>
+            <input type="range" id="timelineSlider" class="timeline-slider" min="0" max="2700" value="0" step="1" aria-label="Meeting playback scrubber">
+          </div>
+        </div>
+
+        <!-- Live Snapshot Metrics Capsule -->
+        <div class="replay-metrics-capsule">
+          <div class="capsule-stat" title="Active participants up to current time">
+            <span id="statActiveParticipants" class="num" style="color: #818cf8;">0</span>
+            <span class="label">Speakers</span>
+          </div>
+          <div class="capsule-stat" title="Ideas introduced up to current time">
+            <span id="statActiveIdeas" class="num" style="color: #c084fc;">0</span>
+            <span class="label">Ideas</span>
+          </div>
+          <div class="capsule-stat" title="Interruptions detected up to current time">
+            <span id="statActiveInterruptions" class="num" style="color: #fb7185;">0</span>
+            <span class="label">Interrupts</span>
+          </div>
+          <div class="capsule-stat" title="Decisions made up to current time">
+            <span id="statActiveDecisions" class="num" style="color: #34d399;">0</span>
+            <span class="label">Decisions</span>
+          </div>
+          <div class="capsule-stat" title="Action items triggered up to current time">
+            <span id="statActiveActions" class="num" style="color: #fbbf24;">0</span>
+            <span class="label">Actions</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Navigation Tabs Bar -->
+    <nav class="nav-tabs-wrapper" aria-label="Dashboard Navigation Tabs">
+      <div class="nav-tabs">
+        <button class="tab-btn active" data-tab="overview">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          <span>Overview</span>
+        </button>
+        <button class="tab-btn" data-tab="preparation">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          <span>Meeting Preparation</span>
+        </button>
+        <button class="tab-btn" data-tab="attendance">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><polyline points="16 11 18 13 22 9"></polyline></svg>
+          <span>Attendance</span>
+          <span id="tabBadgeAttendance" class="tab-badge">0</span>
+        </button>
+        <button class="tab-btn" data-tab="expected-vs-actual">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+          <span>Expected vs Actual</span>
+        </button>
+        <button class="tab-btn" data-tab="agenda-drift">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <span>Agenda Analysis</span>
+          <span id="tabBadgeDrift" class="tab-badge">0</span>
+        </button>
+        <button class="tab-btn" data-tab="recurring-topics">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>
+          <span>Recurring Topics</span>
+          <span id="tabBadgeRecurring" class="tab-badge">0</span>
+        </button>
+        <button class="tab-btn" data-tab="transcript">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          <span>Transcript</span>
+          <span id="tabBadgeTranscript" class="tab-badge">0</span>
+        </button>
+        <button class="tab-btn" data-tab="actions">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+          <span>Action Items</span>
+          <span id="tabBadgeActions" class="tab-badge">0</span>
+        </button>
+        <button class="tab-btn" data-tab="participation">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          <span>Participation</span>
+        </button>
+        <button class="tab-btn" data-tab="ideas">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="9" y1="18" x2="15" y2="18"></line><line x1="10" y1="22" x2="14" y2="22"></line><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"></path></svg>
+          <span>Ideas & Journey</span>
+          <span id="tabBadgeIdeas" class="tab-badge">0</span>
+        </button>
+        <button class="tab-btn" data-tab="decisions">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+          <span>Decisions</span>
+          <span id="tabBadgeDecisions" class="tab-badge">0</span>
+        </button>
+        <button class="tab-btn" data-tab="topics">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+          <span>Topics</span>
+          <span id="tabBadgeTopics" class="tab-badge">0</span>
+        </button>
+        <button class="tab-btn" data-tab="graph">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+          <span>Social Graph</span>
+        </button>
+        <button class="tab-btn" data-tab="replay">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          <span>Meeting Replay</span>
+        </button>
+        <button class="tab-btn" data-tab="integrations">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+          <span>Integrations</span>
+        </button>
+        <button class="tab-btn" data-tab="compare">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+          <span>Compare</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Main Content Area with Tab Panes -->
+    <main class="main-content">
+
+      <!-- ==================== TAB: OVERVIEW ==================== -->
+      <section id="pane-overview" class="tab-pane active">
+        <!-- Overview Stats Grid (10 Executive Metrics) -->
+        <div class="stats-grid">
+          <div class="stat-card" title="Total active meeting participants detected across transcript and attendance.">
+            <div class="stat-icon indigo">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+            </div>
+            <div class="stat-info">
+              <div id="overviewParticipantsCount" class="num" style="color: #818cf8;">0</div>
+              <div class="title">Active Participants</div>
+            </div>
+          </div>
+
+          <div class="stat-card" title="Average duration percentage participants were present during the scheduled meeting.">
+            <div class="stat-icon emerald">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            </div>
+            <div class="stat-info">
+              <div id="overviewAttendanceRate" class="num" style="color: #34d399;">100%</div>
+              <div class="title">Attendance Rate</div>
+            </div>
+          </div>
+
+          <div class="stat-card" title="Participants who joined more than 1 minute after meeting start.">
+            <div class="stat-icon rose">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            </div>
+            <div class="stat-info">
+              <div id="overviewLateArrivals" class="num" style="color: #fb7185;">0</div>
+              <div class="title">Late Arrivals</div>
+            </div>
+          </div>
+
+          <div class="stat-card" title="Action commitments linguistically extracted from transcript with assigned owners and due dates.">
+            <div class="stat-icon amber">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+            </div>
+            <div class="stat-info">
+              <div id="overviewActionsCount" class="num" style="color: #fbbf24;">0</div>
+              <div class="title">Action Items</div>
+            </div>
+          </div>
+
+          <div class="stat-card" title="Consensus agreements and decisions detected across conversation turns.">
+            <div class="stat-icon emerald">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+            </div>
+            <div class="stat-info">
+              <div id="overviewDecisionsCount" class="num" style="color: #34d399;">0</div>
+              <div class="title">Decisions</div>
+            </div>
+          </div>
+
+          <div class="stat-card" title="Percentage of expected meeting topics sufficiently covered by the transcript.">
+            <div class="stat-icon indigo">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            </div>
+            <div class="stat-info">
+              <div id="overviewTopicCoverage" class="num" style="color: #818cf8;">0%</div>
+              <div class="title">Topic Coverage</div>
+            </div>
+          </div>
+
+          <div class="stat-card" title="Detected conversation segments that moved significantly away from planned agenda topics.">
+            <div class="stat-icon rose">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            </div>
+            <div class="stat-info">
+              <div id="overviewAgendaDrift" class="num" style="color: #fb7185;">0</div>
+              <div class="title">Agenda Drift</div>
+            </div>
+          </div>
+
+          <div class="stat-card" title="Topics identified that repeatedly appear across multiple historical meetings.">
+            <div class="stat-icon cyan">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>
+            </div>
+            <div class="stat-info">
+              <div id="overviewRecurringTopics" class="num" style="color: #22d3ee;">0</div>
+              <div class="title">Recurring Topics</div>
+            </div>
+          </div>
+
+          <div class="stat-card" title="Participants with very low observed speaking time and dialogue engagement relative to the meeting average.">
+            <div class="stat-icon amber">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="18" y1="8" x2="23" y2="13"></line><line x1="23" y1="8" x2="18" y2="13"></line></svg>
+            </div>
+            <div class="stat-info">
+              <div id="overviewParticipationGaps" class="num" style="color: #fbbf24;">0</div>
+              <div class="title">Participation Gaps</div>
+            </div>
+          </div>
+
+          <div class="stat-card" title="Substantive discussion topics that concluded without a recorded decision or consensus.">
+            <div class="stat-icon cyan">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            </div>
+            <div class="stat-info">
+              <div id="overviewUnresolvedCount" class="num" style="color: #22d3ee;">0</div>
+              <div class="title">Unresolved Topics</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2-Column Overview Charts & Health Timeline -->
+        <div style="display: grid; grid-template-columns: 1.1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+          <div class="glass-panel">
+            <div class="panel-header">
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18"></path><path d="M9 21V9"></path></svg>
+                Speaking-Time Distribution
+              </h3>
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Empirical speaking share (%)</span>
+            </div>
+            <div style="position: relative; height: 280px; width: 100%;">
+              <canvas id="speakingChart"></canvas>
+            </div>
+          </div>
+
+          <div class="glass-panel">
+            <div class="panel-header">
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+                Meeting Health Timeline
+              </h3>
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Measurable 10-min interval observations</span>
+            </div>
+            <div id="healthTimelineContainer" style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 280px; overflow-y: auto;">
+              <!-- Populated by app.js -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Analytical Neutrality & Explainability Notice -->
+        <div class="attribution-shift-box" style="background: rgba(99, 102, 241, 0.08); border-color: rgba(99, 102, 241, 0.25);">
+          <div class="attribution-shift-icon" style="color: var(--accent-primary);">ℹ</div>
+          <div class="attribution-shift-content">
+            <h4>Scientific & Neutral Analytical Governance</h4>
+            <p>
+              This system strictly distinguishes between <strong>Observed Facts</strong> (e.g. speaking time duration, word count), 
+              <strong>Algorithmic Detections</strong> (e.g. possible interruptions based on timing cadence), and 
+              <strong>Analytical Signals</strong> (e.g. potential idea attribution shifts). 
+              All labels adhere to objective, non-judgmental terminology without psychological speculation or intent attribution.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB: TRANSCRIPT ==================== -->
+      <section id="pane-transcript" class="tab-pane">
+        <div class="glass-panel">
+          <div class="panel-header">
+            <h3 class="panel-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path></svg>
+              Synchronized Transcript Explorer
+            </h3>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">Click any dialogue turn to jump replay timeline</span>
+          </div>
+
+          <div class="transcript-filter-bar">
+            <input type="text" id="transcriptSearch" class="search-input" placeholder="Search spoken dialogue, keywords, tasks, ideas..." aria-label="Search transcript">
+            <select id="transcriptSpeakerFilter" class="filter-select" aria-label="Filter by speaker">
+              <option value="all">All Speakers</option>
+            </select>
+            <select id="transcriptTopicFilter" class="filter-select" aria-label="Filter by topic">
+              <option value="all">All Topics</option>
+            </select>
+            <button id="btnResetTranscriptFilter" class="btn btn-secondary btn-sm">Reset Filters</button>
+          </div>
+
+          <div id="transcriptList" class="transcript-list">
+            <!-- Transcript cards rendered here -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB: ACTION ITEMS ==================== -->
+      <section id="pane-actions" class="tab-pane">
+        <div class="glass-panel">
+          <div class="panel-header">
+            <div>
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+                Action Item Extraction & Confirmation Lifecycle
+              </h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+                Review, accept, edit, or reject AI-detected action items. Only confirmed tasks are dispatched to external task trackers.
+              </p>
+            </div>
+            
+            <div class="header-actions">
+              <select id="actionFilterStatus" class="filter-select">
+                <option value="all">All Statuses</option>
+                <option value="Detected">Detected</option>
+                <option value="Confirmed">Confirmed</option>
+                <option value="Assigned">Assigned</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+                <option value="Rejected">Rejected</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Action Item Lifecycle Progress Bar -->
+          <div id="actionLifecycleStats" style="display: flex; gap: 1rem; align-items: center; background: rgba(0,0,0,0.25); padding: 0.75rem 1.25rem; border-radius: var(--radius-md); margin-bottom: 1.25rem; font-size: 0.85rem;">
+            <!-- Lifecycle counters injected here -->
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="action-items-table">
+              <thead>
+                <tr>
+                  <th style="width: 32%;">Task & Evidence</th>
+                  <th>Owner</th>
+                  <th>Due Date</th>
+                  <th>Priority</th>
+                  <th>Confidence</th>
+                  <th>Status</th>
+                  <th style="text-align: right;">Review Actions</th>
+                </tr>
+              </thead>
+              <tbody id="actionsTableBody">
+                <!-- Rows injected here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB: PARTICIPATION ==================== -->
+      <section id="pane-participation" class="tab-pane">
+        <!-- Turn-Length & Speaking Cadence Panel -->
+        <div class="glass-panel">
+          <div class="panel-header">
+            <h3 class="panel-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+              Turn-Length & Cadence Analysis
+            </h3>
+            
+            <!-- Timeline quartile filter buttons -->
+            <div id="quartileButtons" style="display: flex; gap: 0.4rem;">
+              <button class="btn btn-secondary btn-sm active" data-quartile="entire">Entire Meeting</button>
+              <button class="btn btn-secondary btn-sm" data-quartile="q1">First 25%</button>
+              <button class="btn btn-secondary btn-sm" data-quartile="q2">First 50%</button>
+              <button class="btn btn-secondary btn-sm" data-quartile="q3">Second 50%</button>
+              <button class="btn btn-secondary btn-sm" data-quartile="q4">Last 25%</button>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: center;">
+            <div style="position: relative; height: 260px;">
+              <canvas id="turnChart"></canvas>
+            </div>
+            <div id="turnCadenceStats" style="display: flex; flex-direction: column; gap: 0.75rem;">
+              <!-- Turn stats cards injected here -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Participant Cards Grid -->
+        <div class="panel-header" style="margin-top: 2rem;">
+          <h3 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+            Participant Deep Analytics
+          </h3>
+        </div>
+        <div id="participantCardsGrid" class="stats-grid">
+          <!-- Participant detailed cards injected here -->
+        </div>
+
+        <!-- Temporal Participation Shifts (Beginning vs Middle vs End) -->
+        <div class="glass-panel" style="margin-top: 1.5rem;">
+          <div class="panel-header">
+            <h3 class="panel-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+              Temporal Participation Shift Detection
+            </h3>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Comparing Beginning (0-33%), Middle (33-66%), and End (66-100%)</span>
+          </div>
+          <div id="temporalShiftsContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+            <!-- Injected by app.js -->
+          </div>
+        </div>
+
+        <!-- Feature 6: Silent Participant & Participation Gap Section -->
+        <div class="glass-panel" style="margin-top: 1.5rem;">
+          <div class="panel-header">
+            <div>
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="18" y1="8" x2="23" y2="13"></line><line x1="23" y1="8" x2="18" y2="13"></line></svg>
+                Observed Participation Gaps & Inclusive Facilitation
+              </h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+                Scientific Neutrality Notice: Identifies participants with low observed speaking time. Low speaking time may have multiple causes, including meeting role, topic relevance, or structure, and must not be used as competence ratings.
+              </p>
+            </div>
+            <span id="badgeParticipationGapsCount" class="badge" style="background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3);">0 Gaps Detected</span>
+          </div>
+          <div id="participationGapsContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem;">
+            <!-- Injected by app.js -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB: IDEAS & JOURNEY ==================== -->
+      <section id="pane-ideas" class="tab-pane">
+        <!-- Potential Attribution Shift Alert Box -->
+        <div id="attributionShiftsContainer">
+          <!-- Injected dynamically if detected -->
+        </div>
+
+        <!-- Idea Journeys Timeline -->
+        <div class="glass-panel">
+          <div class="panel-header">
+            <div>
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2"><line x1="9" y1="18" x2="15" y2="18"></line><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"></path></svg>
+                Idea Provenance & Idea Journey
+              </h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+                Tracking ideas from initial introduction through team discussion, repetition, consensus decision, and assigned action item.
+              </p>
+            </div>
+          </div>
+          <div id="ideaJourneysContainer">
+            <!-- Journey timeline trees rendered here -->
+          </div>
+        </div>
+
+        <!-- Detected Ideas & Semantic Overlaps Table -->
+        <div class="glass-panel" style="margin-top: 1.5rem;">
+          <div class="panel-header">
+            <h3 class="panel-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+              Semantic Ideas & Detected Overlaps
+            </h3>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="action-items-table">
+              <thead>
+                <tr>
+                  <th style="width: 45%;">Idea Statement</th>
+                  <th>Originator</th>
+                  <th>Timestamp</th>
+                  <th>Confidence</th>
+                  <th>Lifecycle Stage</th>
+                </tr>
+              </thead>
+              <tbody id="ideasTableBody">
+                <!-- Ideas injected here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB: DECISIONS ==================== -->
+      <section id="pane-decisions" class="tab-pane">
+        <div class="glass-panel">
+          <div class="panel-header">
+            <div>
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+                Consensus Decisions Registry
+              </h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+                Consensus resolutions, architectural selections, and team agreements detected from transcript dialogue.
+              </p>
+            </div>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="action-items-table">
+              <thead>
+                <tr>
+                  <th style="width: 45%;">Decision</th>
+                  <th>Time</th>
+                  <th>Participants Involved</th>
+                  <th>Related Idea</th>
+                  <th>Confidence</th>
+                  <th style="text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="decisionsTableBody">
+                <!-- Decisions injected here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB: TOPICS ==================== -->
+      <section id="pane-topics" class="tab-pane">
+        <div class="glass-panel">
+          <div class="panel-header">
+            <div>
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line></svg>
+                Chronological Topic Segmentation & Resolution
+              </h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+                Identifies conversation topics and objectively detects whether topics reached resolution or remain unresolved.
+              </p>
+            </div>
+          </div>
+
+          <div id="topicsTimelineContainer" style="display: flex; flex-direction: column; gap: 1rem;">
+            <!-- Topics injected here -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB: SOCIAL GRAPH ==================== -->
+      <section id="pane-graph" class="tab-pane">
+        <div class="glass-panel">
+          <div class="panel-header">
+            <div>
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle></svg>
+                Interactive Social Interaction & Dynamics Graph
+              </h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+                Node size indicates speaking time. Edge direction and color visualize conversation flow, interruptions, and idea overlap.
+              </p>
+            </div>
+
+            <!-- Edge Filter Controls -->
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Filter Edges:</span>
+              <select id="graphEdgeFilter" class="filter-select">
+                <option value="all">All Interactions</option>
+                <option value="interruption">Interruptions Only (Rose)</option>
+                <option value="direct_reply">Direct Replies (Cyan)</option>
+                <option value="idea_overlap">Idea Overlaps (Purple Dashed)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Cytoscape Canvas Container -->
+          <div id="cy-container"></div>
+
+          <div class="graph-legend">
+            <div class="legend-item">
+              <span class="legend-color" style="background: #f43f5e;"></span>
+              <span>Possible Interruption (A → B)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color" style="background: #06b6d4;"></span>
+              <span>Direct Reply</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color" style="background: #a855f7; border: 1px dashed #fff;"></span>
+              <span>Idea Overlap</span>
+            </div>
+            <div class="legend-item" style="margin-left: auto;">
+              <span>Tip: Click any participant node to inspect individual analytics</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB: MEETING REPLAY ==================== -->
+      <section id="pane-replay" class="tab-pane">
+        <div class="glass-panel">
+          <div class="panel-header">
+            <div>
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                Meeting Dynamics Replay Studio
+              </h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+                Watch participation, interruptions, ideas, and decisions evolve in real-time as the meeting progresses.
+              </p>
+            </div>
+          </div>
+
+          <div class="replay-studio-grid">
+            <!-- Left: Synchronized Dynamic Graph -->
+            <div>
+              <div id="cy-container-replay" style="width: 100%; height: 420px; background: #090d16; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);"></div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; text-align: center;">
+                Active speaker node glows cyan; node size adjusts to cumulative speaking share.
+              </div>
+            </div>
+
+            <!-- Right: Live Active Turn & Dynamic Event Stream -->
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+              <div class="live-transcript-box">
+                <div class="live-speaker-tag">
+                  <span class="active-speaker-dot"></span>
+                  <span id="replayLiveSpeaker">Alice</span>
+                  <span id="replayLiveTimestamp" style="color: var(--text-muted); font-size: 0.8rem; margin-left: auto; font-family: var(--font-mono);">[00:01:10]</span>
+                </div>
+                <div id="replayLiveQuote" class="live-turn-quote">
+                  "Good morning team, thanks for jumping on. Let's do a quick alignment on our Q4 deliverables..."
+                </div>
+              </div>
+
+              <!-- Events introduced up to this moment -->
+              <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1rem; flex: 1;">
+                <h4 style="font-size: 0.85rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">
+                  Key Moments Emerged By This Timestamp
+                </h4>
+                <div id="replayEventsFeed" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto;">
+                  <!-- Injected by app.js -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB: INTEGRATIONS ==================== -->
+      <section id="pane-integrations" class="tab-pane">
+        <div class="glass-panel">
+          <div class="panel-header">
+            <div>
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path></svg>
+                Enterprise Integrations Dispatch Hub
+              </h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+                Export confirmed action items into Slack channels, Jira issues, and Trello boards. In Demo Mode, realistic payloads are safely simulated.
+              </p>
+            </div>
+            <div>
+              <span id="integrationActionCount" class="badge badge-confirmed" style="font-size: 0.85rem; padding: 0.4rem 0.85rem;">0 Confirmed Tasks Ready</span>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; margin-top: 1rem;">
+            <!-- Slack Dispatcher Card -->
+            <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+              <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <div style="width: 40px; height: 40px; background: rgba(99, 102, 241, 0.15); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center;">
+                  <span style="font-weight: 800; color: #818cf8; font-size: 1.2rem;">#</span>
+                </div>
+                <div>
+                  <h4 style="font-family: var(--font-heading); font-size: 1.05rem;">Slack Integration</h4>
+                  <span style="font-size: 0.75rem; color: var(--text-muted);">Formatted Block Kit Notification</span>
+                </div>
+              </div>
+              <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+                Dispatches a structured digest of accepted tasks, owners, priorities, and due dates to your designated team channel.
+              </p>
+              <button id="slackDispatchBtn" class="btn btn-primary" style="margin-top: auto;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>Dispatch to Slack</span>
+              </button>
+            </div>
+
+            <!-- Jira Dispatcher Card -->
+            <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+              <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <div style="width: 40px; height: 40px; background: rgba(6, 182, 212, 0.15); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center;">
+                  <span style="font-weight: 800; color: #22d3ee; font-size: 1.2rem;">J</span>
+                </div>
+                <div>
+                  <h4 style="font-family: var(--font-heading); font-size: 1.05rem;">Jira Software</h4>
+                  <span style="font-size: 0.75rem; color: var(--text-muted);">Create Standard Jira Tasks</span>
+                </div>
+              </div>
+              <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+                Creates Jira issue tasks with summary, priority, due date, assignee, and transcript quote attached as description.
+              </p>
+              <button id="jiraDispatchBtn" class="btn btn-primary" style="margin-top: auto;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>Create Jira Issues</span>
+              </button>
+            </div>
+
+            <!-- Trello Dispatcher Card -->
+            <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+              <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <div style="width: 40px; height: 40px; background: rgba(16, 185, 129, 0.15); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center;">
+                  <span style="font-weight: 800; color: #34d399; font-size: 1.2rem;">T</span>
+                </div>
+                <div>
+                  <h4 style="font-family: var(--font-heading); font-size: 1.05rem;">Trello Board</h4>
+                  <span style="font-size: 0.75rem; color: var(--text-muted);">Create Trello Cards</span>
+                </div>
+              </div>
+              <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+                Generates actionable Trello cards on your target board list with priority tags and due date reminders.
+              </p>
+              <button id="trelloDispatchBtn" class="btn btn-primary" style="margin-top: auto;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>Create Trello Cards</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Dispatch Activity Feed -->
+          <div style="margin-top: 1.5rem; background: #080c14; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.25rem;">
+            <h4 style="font-size: 0.85rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.5rem;">Integration Activity Log</h4>
+            <pre id="integrationLog" style="font-family: var(--font-mono); font-size: 0.8rem; color: #94a3b8; max-height: 160px; overflow-y: auto; white-space: pre-wrap;">Ready to dispatch confirmed action items.</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB: COMPARE MEETINGS ==================== -->
+      <section id="pane-compare" class="tab-pane">
+        <div class="glass-panel">
+          <div class="panel-header">
+            <div>
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                Objective Multi-Meeting Comparison
+              </h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+                Compare empirical metrics across meetings without simplistic or arbitrary "best meeting" rankings.
+              </p>
+            </div>
+            <div>
+              <button id="btnRunComparison" class="btn btn-secondary btn-sm">Refresh Comparison</button>
+            </div>
+          </div>
+
+          <div style="position: relative; height: 280px; margin-bottom: 1.5rem;">
+            <canvas id="compareChart"></canvas>
+          </div>
+
+          <div id="compareMetricsContainer" style="overflow-x: auto;">
+        </div>
+      </section>
+
+      <!-- ==================== TAB: MEETING PREPARATION ==================== -->
+      <section id="pane-preparation" class="tab-pane">
+        <div class="glass-panel">
+          <div class="panel-header">
+            <div>
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                Pre-Meeting Preparation & Expected Conversation Planner
+              </h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+                Generate AI predictions and structured agendas before the meeting begins. Predictions serve as planning baselines and are never presented as actual meeting facts.
+              </p>
+            </div>
+            <div>
+              <button id="btnLoadMeetingIntoPrep" class="btn btn-secondary btn-sm" title="Pre-fill form using current active meeting details">Sync From Active Meeting</button>
+            </div>
+          </div>
+
+          <!-- Pre-Meeting Plan Configuration Form -->
+          <form id="meetingPlanForm" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+            <div class="form-group" style="grid-column: 1 / -1;">
+              <label for="planTopic" class="form-label">Meeting Topic / Title *</label>
+              <input type="text" id="planTopic" class="form-input" placeholder="e.g. Q4 Sprint Planning & Architecture Sync" required>
+            </div>
+
+            <div class="form-group" style="grid-column: 1 / -1;">
+              <label for="planObjective" class="form-label">Meeting Objective</label>
+              <textarea id="planObjective" class="form-textarea" style="min-height: 70px;" placeholder="e.g. Finalize sprint priorities, automate deployment pipelines, and resolve database bottlenecks."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="planDuration" class="form-label">Planned Duration (Minutes)</label>
+              <input type="number" id="planDuration" class="form-input" value="45" min="5" max="300">
+            </div>
+
+            <div class="form-group">
+              <label for="planMeetingType" class="form-label">Meeting Type</label>
+              <select id="planMeetingType" class="form-input">
+                <option value="Sprint Planning">Sprint Planning</option>
+                <option value="Architecture Sync">Architecture Sync</option>
+                <option value="Retrospective">Retrospective</option>
+                <option value="1-on-1 Alignment">1-on-1 Alignment</option>
+                <option value="Executive Review">Executive Review</option>
+                <option value="Incident Post-Mortem">Incident Post-Mortem</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="planDepartment" class="form-label">Department</label>
+              <input type="text" id="planDepartment" class="form-input" placeholder="e.g. Product & Engineering" value="Product & Engineering">
+            </div>
+
+            <div class="form-group">
+              <label for="planIndustry" class="form-label">Project / Industry Context</label>
+              <input type="text" id="planIndustry" class="form-input" placeholder="e.g. Enterprise Cloud Infrastructure" value="Enterprise Cloud Infrastructure">
+            </div>
+
+            <!-- Participant Roles & Responsibilities Builder -->
+            <div style="grid-column: 1 / -1; margin-top: 0.5rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <label class="form-label" style="margin-bottom: 0;">Expected Participants & Role Responsibilities</label>
+                <button type="button" id="btnAddParticipantRow" class="btn btn-secondary btn-sm">+ Add Participant</button>
+              </div>
+              <div id="planParticipantsContainer" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <!-- Participant input rows injected dynamically -->
+              </div>
+            </div>
+
+            <div style="grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem;">
+              <button type="submit" id="btnGeneratePlan" class="btn btn-primary">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                <span>Generate Expected Conversation Plan</span>
+              </button>
+            </div>
+          </form>
+
+          <!-- Plan Output Container -->
+          <div id="planOutputContainer" style="display: none; border-top: 1px solid var(--border-subtle); padding-top: 1.5rem;">
+            <!-- AI Disclaimer Notice -->
+            <div class="attribution-shift-box" style="background: rgba(99, 102, 241, 0.08); border-color: rgba(99, 102, 241, 0.25); margin-bottom: 1.5rem;">
+              <div class="attribution-shift-icon" style="color: var(--accent-primary);">ℹ</div>
+              <div class="attribution-shift-content">
+                <h4 style="color: #818cf8;">AI-Generated Expected Discussion</h4>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                  The items below are predictive planning suggestions and structured recommendations based on role models and topic heuristics. They represent expectations, <strong>NOT actual meeting facts</strong>.
+                </p>
+              </div>
+            </div>
+
+            <!-- Suggested Agenda Table -->
+            <div class="glass-panel" style="margin-bottom: 1.5rem;">
+              <div class="panel-header">
+                <h3 class="panel-title">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                  Suggested Timed Agenda
+                </h3>
+                <span id="planAgendaTimeTotal" style="font-size: 0.75rem; color: var(--text-muted);">45 Minutes Total</span>
+              </div>
+              <div style="overflow-x: auto;">
+                <table class="action-items-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 15%;">Time Window</th>
+                      <th style="width: 30%;">Topic / Objective</th>
+                      <th style="width: 20%;">Discussion Lead</th>
+                      <th>Expected Outcome</th>
+                    </tr>
+                  </thead>
+                  <tbody id="planAgendaTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Expected Grid: Topics, Questions, Decisions, Action Areas -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+              <!-- Expected Topics Card -->
+              <div class="glass-panel" style="padding: 1.25rem;">
+                <h4 style="font-size: 0.9rem; font-weight: 700; color: #818cf8; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line></svg>
+                  Expected Topics
+                </h4>
+                <ul id="planExpectedTopicsList" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem; color: var(--text-secondary);"></ul>
+              </div>
+
+              <!-- Expected Questions Card -->
+              <div class="glass-panel" style="padding: 1.25rem;">
+                <h4 style="font-size: 0.9rem; font-weight: 700; color: #22d3ee; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                  Expected Questions
+                </h4>
+                <ul id="planExpectedQuestionsList" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem; color: var(--text-secondary);"></ul>
+              </div>
+
+              <!-- Expected Decisions Card -->
+              <div class="glass-panel" style="padding: 1.25rem;">
+                <h4 style="font-size: 0.9rem; font-weight: 700; color: #34d399; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+                  Expected Decisions
+                </h4>
+                <ul id="planExpectedDecisionsList" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem; color: var(--text-secondary);"></ul>
+              </div>
+
+              <!-- Expected Action Areas Card -->
+              <div class="glass-panel" style="padding: 1.25rem;">
+                <h4 style="font-size: 0.9rem; font-weight: 700; color: #fbbf24; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+                  Expected Action Areas
+                </h4>
+                <ul id="planExpectedActionsList" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem; color: var(--text-secondary);"></ul>
+              </div>
+            </div>
+
+            <!-- Role-Based Contributions Expectations -->
+            <div class="glass-panel" style="margin-bottom: 1.5rem;">
+              <div class="panel-header">
+                <h3 class="panel-title">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+                  Role-Based Expected Contribution Domains
+                </h3>
+                <span style="font-size: 0.75rem; color: var(--text-muted);">Predictive role topic mappings</span>
+              </div>
+              <div id="planRoleExpectationsGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;"></div>
+            </div>
+
+            <!-- Plan Action Buttons -->
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+              <button id="btnSaveMeetingPlan" class="btn btn-primary">Save Meeting Plan</button>
+              <button id="btnStartAnalysisFromPlan" class="btn btn-demo">Start Meeting Analysis</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB: ATTENDANCE ANALYTICS ==================== -->
+      <section id="pane-attendance" class="tab-pane">
+        <!-- Attendance Summary Stat Cards -->
+        <div class="stats-grid">
+          <div class="stat-card" title="Overall participant attendance rate across scheduled duration.">
+            <div class="stat-icon emerald">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            </div>
+            <div class="stat-info">
+              <div id="attSummaryRate" class="num" style="color: #34d399;">100%</div>
+              <div class="title">Average Attendance</div>
+            </div>
+          </div>
+
+          <div class="stat-card" title="Participants who arrived on schedule (within 1 min of start).">
+            <div class="stat-icon indigo">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+            </div>
+            <div class="stat-info">
+              <div id="attSummaryOnTime" class="num" style="color: #818cf8;">0</div>
+              <div class="title">On-Time Arrivals</div>
+            </div>
+          </div>
+
+          <div class="stat-card" title="Participants who joined more than 1 minute after start.">
+            <div class="stat-icon rose">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3"></path><circle cx="12" cy="12" r="9"></circle></svg>
+            </div>
+            <div class="stat-info">
+              <div id="attSummaryLate" class="num" style="color: #fb7185;">0</div>
+              <div class="title">Late Arrivals</div>
+            </div>
+          </div>
+
+          <div class="stat-card" title="Participants who left more than 1 minute before scheduled conclusion.">
+            <div class="stat-icon amber">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            </div>
+            <div class="stat-info">
+              <div id="attSummaryEarlyLeave" class="num" style="color: #fbbf24;">0</div>
+              <div class="title">Early Departures</div>
+            </div>
+          </div>
+
+          <div class="stat-card" title="Verified event attendance data versus transcript cadence estimations.">
+            <div class="stat-icon cyan">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><polyline points="16 11 18 13 22 9"></polyline></svg>
+            </div>
+            <div class="stat-info">
+              <div id="attSummaryVerified" class="num" style="color: #22d3ee;">0 / 0</div>
+              <div class="title">Verified / Estimated</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Attendance Chart & Visual Presence Timeline -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+          <div class="glass-panel">
+            <div class="panel-header">
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18"></path><path d="M9 21V9"></path></svg>
+                Attendance Duration (%)
+              </h3>
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Duration relative to meeting duration</span>
+            </div>
+            <div style="position: relative; height: 260px;">
+              <canvas id="attendanceChart"></canvas>
+            </div>
+          </div>
+
+          <div class="glass-panel">
+            <div class="panel-header">
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                Participant Presence Timeline
+              </h3>
+              <span id="attMeetingDurationBadge" style="font-size: 0.75rem; color: var(--text-muted);">45m Duration</span>
+            </div>
+            <div id="attendanceTimelineContainer" style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 260px; overflow-y: auto;">
+              <!-- Injected presence bars -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Attendance Detailed Table -->
+        <div class="glass-panel">
+          <div class="panel-header">
+            <div>
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+                Employee In-Time & Attendance Records
+              </h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+                Verified attendance is sourced from calendar/meeting join logs; estimated attendance is inferred from initial and final dialogue turn timestamps.
+              </p>
+            </div>
+            <button id="btnOpenAddAttendanceModal" class="btn btn-secondary btn-sm">+ Log Verified Attendance</button>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="action-items-table">
+              <thead>
+                <tr>
+                  <th>Participant</th>
+                  <th>ID</th>
+                  <th>Role</th>
+                  <th>Join Time</th>
+                  <th>Leave Time</th>
+                  <th>Duration</th>
+                  <th>Attendance %</th>
+                  <th>Status</th>
+                  <th>Source</th>
+                  <th>Transcript Turn Bounds</th>
+                  <th style="text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="attendanceTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB: EXPECTED VS ACTUAL ==================== -->
+      <section id="pane-expected-vs-actual" class="tab-pane">
+        <!-- Topic Coverage Banner & Progress Meter -->
+        <div class="glass-panel" style="margin-bottom: 1.5rem;">
+          <div class="panel-header">
+            <div>
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+                Meeting Topic Coverage Score
+              </h3>
+              <p id="topicCoverageReason" style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                Calculating topic coverage...
+              </p>
+            </div>
+            <div style="text-align: right;">
+              <span id="topicCoveragePercentageBadge" style="font-size: 1.75rem; font-weight: 800; color: #818cf8; font-family: var(--font-heading);">0%</span>
+              <div id="topicCoverageBarText" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-muted);">░░░░░░░░░░ 0%</div>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1rem;">
+            <div style="background: rgba(52, 211, 153, 0.08); border: 1px solid rgba(52, 211, 153, 0.2); padding: 0.85rem; border-radius: var(--radius-md);">
+              <div style="font-size: 0.75rem; color: #34d399; text-transform: uppercase; font-weight: 700;">Covered Topics</div>
+              <div id="covCoveredCount" style="font-size: 1.5rem; font-weight: 800; color: #fff; margin-top: 0.2rem;">0</div>
+            </div>
+            <div style="background: rgba(251, 191, 36, 0.08); border: 1px solid rgba(251, 191, 36, 0.2); padding: 0.85rem; border-radius: var(--radius-md);">
+              <div style="font-size: 0.75rem; color: #fbbf24; text-transform: uppercase; font-weight: 700;">Partially Covered</div>
+              <div id="covPartialCount" style="font-size: 1.5rem; font-weight: 800; color: #fff; margin-top: 0.2rem;">0</div>
+            </div>
+            <div style="background: rgba(251, 113, 133, 0.08); border: 1px solid rgba(251, 113, 133, 0.2); padding: 0.85rem; border-radius: var(--radius-md);">
+              <div style="font-size: 0.75rem; color: #fb7185; text-transform: uppercase; font-weight: 700;">Not Discussed / Missing</div>
+              <div id="covMissingCount" style="font-size: 1.5rem; font-weight: 800; color: #fff; margin-top: 0.2rem;">0</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detailed Expected vs Actual Comparison Table -->
+        <div class="glass-panel" style="margin-bottom: 1.5rem;">
+          <div class="panel-header">
+            <h3 class="panel-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+              Expected Topics vs Actual Dialogue Deliberations
+            </h3>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Explainable semantic topic matching</span>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="action-items-table">
+              <thead>
+                <tr>
+                  <th style="width: 25%;">Expected Topic</th>
+                  <th style="width: 15%;">Coverage Status</th>
+                  <th style="width: 15%;">Discussion Duration</th>
+                  <th style="width: 20%;">Matched Transcript Topic</th>
+                  <th>Evidence & Resolution</th>
+                </tr>
+              </thead>
+              <tbody id="topicCoverageTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Role-Based Contribution vs Expectation Analysis -->
+        <div class="glass-panel">
+          <div class="panel-header">
+            <div>
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+                Role-Based Expected vs Actual Contribution
+              </h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+                Scientific Neutrality Notice: Evaluates topic engagement by participant domain without competence ratings.
+              </p>
+            </div>
+          </div>
+          <div id="roleContributionsContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem;"></div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB: AGENDA ANALYSIS (DRIFT DETECTOR) ==================== -->
+      <section id="pane-agenda-drift" class="tab-pane">
+        <!-- Drift Overview Stats -->
+        <div class="stats-grid">
+          <div class="stat-card" title="Count of detected conversations diverging from the scheduled agenda.">
+            <div class="stat-icon rose">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            </div>
+            <div class="stat-info">
+              <div id="driftStatIncidents" class="num" style="color: #fb7185;">0</div>
+              <div class="title">Drift Incidents</div>
+            </div>
+          </div>
+
+          <div class="stat-card" title="Cumulative minutes spent in detected off-topic discussion.">
+            <div class="stat-icon amber">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+            </div>
+            <div class="stat-info">
+              <div id="driftStatDuration" class="num" style="color: #fbbf24;">0 min</div>
+              <div class="title">Total Drift Duration</div>
+            </div>
+          </div>
+
+          <div class="stat-card" title="Percentage of meeting duration spent away from planned agenda.">
+            <div class="stat-icon indigo">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            </div>
+            <div class="stat-info">
+              <div id="driftStatPercentage" class="num" style="color: #818cf8;">0%</div>
+              <div class="title">% of Meeting</div>
+            </div>
+          </div>
+
+          <div class="stat-card" title="Percentage of meeting spent aligned on scheduled topics.">
+            <div class="stat-icon emerald">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            </div>
+            <div class="stat-info">
+              <div id="driftStatDiscipline" class="num" style="color: #34d399;">100%</div>
+              <div class="title">Agenda Alignment</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Visual Agenda Drift Timeline -->
+        <div class="glass-panel" style="margin-bottom: 1.5rem;">
+          <div class="panel-header">
+            <div>
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                Agenda Progression Timeline
+              </h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+                Visual progression showing On-Agenda versus Potential Agenda Drift segments across meeting runtime.
+              </p>
+            </div>
+          </div>
+
+          <!-- Segmented Timeline Bar -->
+          <div id="agendaDriftTimeline" style="display: flex; height: 38px; border-radius: 6px; overflow: hidden; background: rgba(255,255,255,0.05); margin-bottom: 1rem; border: 1px solid var(--border-subtle);"></div>
+
+          <div style="display: flex; gap: 1.5rem; font-size: 0.8rem; color: var(--text-secondary);">
+            <div style="display: flex; align-items: center; gap: 0.4rem;">
+              <span style="display: inline-block; width: 12px; height: 12px; background: #34d399; border-radius: 3px;"></span>
+              <span>On Agenda</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.4rem;">
+              <span style="display: inline-block; width: 12px; height: 12px; background: #fb7185; border-radius: 3px;"></span>
+              <span>Potential Agenda Drift</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Drift Incidents Breakdown & Confirmation -->
+        <div class="glass-panel">
+          <div class="panel-header">
+            <h3 class="panel-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fb7185" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>
+              Detected Agenda Deviations & User Feedback
+            </h3>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Click buttons to confirm or dispute drift</span>
+          </div>
+          <div id="agendaDriftsContainer" style="display: flex; flex-direction: column; gap: 1rem;"></div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB: RECURRING TOPICS ==================== -->
+      <section id="pane-recurring-topics" class="tab-pane">
+        <!-- Recurring Topics Stats -->
+        <div class="stats-grid">
+          <div class="stat-card" title="Total topics identified that recur across multiple historical meetings.">
+            <div class="stat-icon cyan">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>
+            </div>
+            <div class="stat-info">
+              <div id="recStatTotal" class="num" style="color: #22d3ee;">0</div>
+              <div class="title">Recurring Topics</div>
+            </div>
+          </div>
+
+          <div class="stat-card" title="Recurring topics that have not yet reached a recorded decision.">
+            <div class="stat-icon rose">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            </div>
+            <div class="stat-info">
+              <div id="recStatUnresolved" class="num" style="color: #fb7185;">0</div>
+              <div class="title">Unresolved Issues</div>
+            </div>
+          </div>
+
+          <div class="stat-card" title="Recurring topics that eventually reached final consensus or decision.">
+            <div class="stat-icon emerald">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+            </div>
+            <div class="stat-info">
+              <div id="recStatResolved" class="num" style="color: #34d399;">0</div>
+              <div class="title">Resolved Decisions</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter Buttons & Recurring Topics Cards -->
+        <div class="glass-panel">
+          <div class="panel-header">
+            <div>
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>
+                Historical Cross-Meeting Topic Trajectory
+              </h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+                Semantic clustering tracks persistent deliberative themes across sprint planning and retrospective sessions.
+              </p>
+            </div>
+            <div id="recurringFilterButtons" style="display: flex; gap: 0.4rem;">
+              <button class="btn btn-secondary btn-sm active" data-filter="all">All</button>
+              <button class="btn btn-secondary btn-sm" data-filter="unresolved">Unresolved</button>
+              <button class="btn btn-secondary btn-sm" data-filter="repeated">Repeated (2+ Meetings)</button>
+              <button class="btn btn-secondary btn-sm" data-filter="resolved">Resolved</button>
+            </div>
+          </div>
+          <div id="recurringTopicsContainer" style="display: flex; flex-direction: column; gap: 1rem;"></div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Modal: Upload Transcript -->
+    <div id="uploadModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="uploadModalTitle">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3 id="uploadModalTitle" class="modal-title">Upload Meeting Transcript</h3>
+          <button id="btnCloseUploadModal" class="close-btn" aria-label="Close modal">&times;</button>
+        </div>
+        <form id="uploadForm">
+          <div class="form-group">
+            <label for="uploadTitle" class="form-label">Meeting Title</label>
+            <input type="text" id="uploadTitle" class="form-input" placeholder="e.g. Q4 Sprint Planning & Architecture Sync" required>
+          </div>
+
+          <div class="form-group">
+            <label for="uploadFile" class="form-label">Transcript File (.txt, .vtt, .srt, .json)</label>
+            <input type="file" id="uploadFile" class="form-input" accept=".txt,.vtt,.srt,.json">
+          </div>
+
+          <div class="form-group">
+            <label for="uploadRawText" class="form-label">Or Paste Timestamped Dialogue Directly</label>
+            <textarea id="uploadRawText" class="form-textarea" placeholder="[00:01:10] Alice: Good morning team...&#10;[00:02:00] Bob: Let's discuss the deployment pipeline..."></textarea>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+            <button type="button" id="btnCancelUpload" class="btn btn-secondary">Cancel</button>
+            <button type="submit" id="btnSubmitUpload" class="btn btn-primary">Process & Analyze</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal: Edit Action Item -->
+    <div id="editActionModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="editActionModalTitle">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3 id="editActionModalTitle" class="modal-title">Edit Action Item</h3>
+          <button id="btnCloseEditModal" class="close-btn" aria-label="Close modal">&times;</button>
+        </div>
+        <form id="editActionForm">
+          <input type="hidden" id="editItemId">
+          <div class="form-group">
+            <label for="editTask" class="form-label">Task Description</label>
+            <input type="text" id="editTask" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label for="editOwner" class="form-label">Assigned Owner</label>
+            <input type="text" id="editOwner" class="form-input" required>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label for="editDueDate" class="form-label">Due Date (Normalized)</label>
+              <input type="text" id="editDueDate" class="form-input" placeholder="YYYY-MM-DD or Relative">
+            </div>
+            <div class="form-group">
+              <label for="editPriority" class="form-label">Priority</label>
+              <select id="editPriority" class="form-input">
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="editStatus" class="form-label">Lifecycle Status</label>
+            <select id="editStatus" class="form-input">
+              <option value="Detected">Detected</option>
+              <option value="Confirmed">Confirmed</option>
+              <option value="Assigned">Assigned</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Completed">Completed</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+            <button type="button" id="btnCancelEdit" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal: Participant Node Details -->
+    <div id="nodeDetailsModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="nodeModalTitle">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3 id="nodeModalTitle" class="modal-title">Participant Dynamics</h3>
+          <button id="btnCloseNodeModal" class="close-btn" aria-label="Close modal">&times;</button>
+        </div>
+        <div id="nodeModalBody">
+          <!-- Injected by graph.js / app.js -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Log / Edit Verified Attendance -->
+    <div id="editAttendanceModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="attendanceModalTitle">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3 id="attendanceModalTitle" class="modal-title">Log / Update Participant Attendance</h3>
+          <button id="btnCloseAttendanceModal" class="close-btn" aria-label="Close modal">&times;</button>
+        </div>
+        <form id="attendanceForm">
+          <input type="hidden" id="attParticipantId">
+          <div class="form-group">
+            <label for="attParticipantName" class="form-label">Participant Name</label>
+            <input type="text" id="attParticipantName" class="form-input" required>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label for="attEmployeeId" class="form-label">Employee ID (Optional)</label>
+              <input type="text" id="attEmployeeId" class="form-input" placeholder="e.g. EMP-101">
+            </div>
+            <div class="form-group">
+              <label for="attParticipantRole" class="form-label">Role</label>
+              <input type="text" id="attParticipantRole" class="form-input" placeholder="e.g. Backend Developer">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label for="attJoinTime" class="form-label">Join Time (MM:SS or HH:MM)</label>
+              <input type="text" id="attJoinTime" class="form-input" placeholder="00:00" required>
+            </div>
+            <div class="form-group">
+              <label for="attLeaveTime" class="form-label">Leave Time (MM:SS or HH:MM)</label>
+              <input type="text" id="attLeaveTime" class="form-input" placeholder="45:00" required>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top: 0.5rem;">
+            <label class="form-label" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+              <input type="checkbox" id="attIsVerified" checked style="width: 16px; height: 16px; accent-color: var(--accent-primary);">
+              <span>Mark as Verified Attendance (official calendar/join logs)</span>
+            </label>
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+            <button type="button" id="btnCancelAttendance" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Attendance</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal: View Recurring Topic Cross-Meeting Details -->
+    <div id="recurringMeetingDetailModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="recurringModalTitle">
+      <div class="modal-box" style="max-width: 720px;">
+        <div class="modal-header">
+          <div>
+            <h3 id="recurringModalTitle" class="modal-title">Recurring Topic Trajectory</h3>
+            <p id="recurringModalSubtitle" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;"></p>
+          </div>
+          <button id="btnCloseRecurringModal" class="close-btn" aria-label="Close modal">&times;</button>
+        </div>
+        <div id="recurringModalBody" style="max-height: 480px; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; padding-top: 0.5rem;">
+          <!-- Injected dynamically -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  </div>
+
+  <!-- Application Scripts -->
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/graph.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
