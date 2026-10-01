@@ -22,7 +22,7 @@ outputs/
 temp/
 
 # AI/ML models
-models/
+/models/
 *.pt
 *.pth
 *.bin
